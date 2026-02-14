@@ -1,0 +1,401 @@
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { InternalDocument, DocumentStatus, Role, User, Department, DocType } from '../types';
+import { DB } from '../services/db';
+import { 
+  FileText, 
+  Search, 
+  Filter, 
+  Clock, 
+  ArrowRight, 
+  CheckCircle, 
+  AlertCircle, 
+  User as UserIcon,
+  Plus,
+  MoreVertical,
+  Paperclip,
+  ChevronRight,
+  Shield,
+  Layers,
+  Archive,
+  XCircle,
+  Upload
+} from '../components/Icons';
+
+interface InternalRoutingViewProps {
+  currentUser: User;
+}
+
+const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }) => {
+  const [docs, setDocs] = useState<InternalDocument[]>([]);
+  const [filter, setFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDoc, setSelectedDoc] = useState<InternalDocument | null>(null);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const loadData = async () => {
+      const data = await DB.getInternalDocuments();
+      setDocs(data);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const filteredDocs = useMemo(() => {
+    return docs.filter(doc => {
+      const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           doc.trackingId.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      if (filter === 'all') return matchesSearch;
+      if (filter === 'my-tasks') return matchesSearch && doc.currentHolderId === currentUser.id;
+      if (filter === 'urgent') return matchesSearch && doc.priority === 'Highly Urgent';
+      if (filter === 'dept') return matchesSearch && doc.originatingDept === currentUser.department;
+      return matchesSearch;
+    });
+  }, [docs, filter, searchQuery, currentUser.id, currentUser.department]);
+
+  const stats = {
+    incoming: docs.filter(d => d.status === DocumentStatus.RECEIVED).length,
+    pending: docs.filter(d => d.currentHolderId === currentUser.id).length,
+    urgent: docs.filter(d => d.priority === 'Highly Urgent').length,
+    completed: 128 // Mock
+  };
+
+  const handleDocAction = async (docId: string, action: 'FORWARD' | 'APPROVE' | 'REJECT' | 'RETURN') => {
+    let newStatus = DocumentStatus.ROUTED;
+    let nextUser = currentUser.id; // Default hold
+
+    switch(action) {
+        case 'FORWARD':
+            newStatus = DocumentStatus.UNDER_REVIEW;
+            nextUser = 'u_eval';
+            break;
+        case 'APPROVE':
+            newStatus = DocumentStatus.APPROVED;
+            nextUser = 'u_records';
+            break;
+        case 'RETURN':
+            newStatus = DocumentStatus.RETURNED;
+            nextUser = 'u_clerk';
+            break;
+        case 'REJECT':
+            newStatus = DocumentStatus.REJECTED;
+            nextUser = 'u_records';
+            break;
+    }
+
+    await DB.updateDocumentStatus(docId, newStatus, nextUser, `${action} by ${currentUser.name}`, currentUser.department);
+    setSelectedDoc(null);
+    loadData();
+  };
+
+  const handleDigitizeClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        setIsUploading(true);
+        
+        try {
+            const uploadResult = await DB.uploadDocumentFile(file);
+            if (uploadResult) {
+                const trackingId = `TAL-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+                
+                await DB.createInternalDocument({
+                    trackingId: trackingId,
+                    title: file.name.split('.')[0] || 'Untitled Document',
+                    type: DocType.MEMO,
+                    originatingDept: currentUser.department,
+                    currentHolderId: currentUser.id,
+                    status: DocumentStatus.RECEIVED,
+                    priority: 'Routine',
+                }, {
+                    name: file.name,
+                    path: uploadResult.path,
+                    url: uploadResult.url
+                });
+
+                loadData();
+                alert(`Document Digitized! Tracking ID: ${trackingId}`);
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Failed to upload document");
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    }
+  };
+
+  return (
+    <div className="space-y-8 p-8 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        className="hidden" 
+        accept=".pdf,.doc,.docx,.jpg,.png"
+        onChange={handleFileSelected}
+      />
+
+      {/* Header & Stats */}
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight italic">Document Hub <span className="text-gov-500 font-bold not-italic text-sm ml-2 bg-gov-50 px-3 py-1 rounded-full border border-gov-100">v2.5</span></h1>
+          <p className="text-slate-500 font-medium mt-1 uppercase tracking-widest text-[10px]">Managing Stream for {currentUser.department}</p>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+            <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-xl active:scale-95">
+              <Archive size={18} />
+              Vault Access
+            </button>
+            <button 
+                onClick={handleDigitizeClick}
+                disabled={isUploading}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gov-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-gov-700 transition-all shadow-xl shadow-gov-200 active:scale-95 disabled:opacity-70"
+            >
+              {isUploading ? <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div> : <Upload size={18} />}
+              {isUploading ? 'Uploading...' : 'Digitize Document'}
+            </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Incoming Stream" value={stats.incoming} icon={Clock} color="blue" />
+        <StatCard label="My Queue" value={stats.pending} icon={Layers} color="indigo" />
+        <StatCard label="Critical Actions" value={stats.urgent} icon={AlertCircle} color="red" />
+        <StatCard label="Finalized (MTD)" value={stats.completed} icon={CheckCircle} color="emerald" />
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Table List */}
+        <div className="flex-1 bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+          <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row justify-between gap-6 bg-slate-50/30">
+            <div className="flex gap-1 p-1.5 bg-slate-100 rounded-2xl w-fit">
+              <FilterTab active={filter === 'all'} label="Global Stream" onClick={() => setFilter('all')} />
+              <FilterTab active={filter === 'my-tasks'} label="My Queue" onClick={() => setFilter('my-tasks')} />
+              <FilterTab active={filter === 'dept'} label="Dept Files" onClick={() => setFilter('dept')} />
+              <FilterTab active={filter === 'urgent'} label="Urgent" onClick={() => setFilter('urgent')} />
+            </div>
+            <div className="relative">
+              <input 
+                type="text" 
+                placeholder="Search Title or Tracking ID..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-12 pr-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-gov-500/10 focus:border-gov-500 focus:outline-none w-full md:w-80 transition-all shadow-sm" 
+              />
+              <Search size={20} className="absolute left-4 top-3.5 text-slate-300" />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
+                <tr>
+                  <th className="px-8 py-5">Track ID</th>
+                  <th className="px-8 py-5">Subject / Department</th>
+                  <th className="px-8 py-5">Priority</th>
+                  <th className="px-8 py-5">Current Step</th>
+                  <th className="px-8 py-5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredDocs.map(doc => (
+                  <tr 
+                    key={doc.id} 
+                    onClick={() => setSelectedDoc(doc)}
+                    className={`hover:bg-gov-50/50 transition-all cursor-pointer group relative ${selectedDoc?.id === doc.id ? 'bg-gov-50/80 shadow-inner' : ''}`}
+                  >
+                    <td className="px-8 py-5">
+                      <span className="text-xs font-mono font-black text-gov-700 bg-gov-100/50 px-3 py-1.5 rounded-xl border border-gov-100/50">
+                        {doc.trackingId}
+                      </span>
+                    </td>
+                    <td className="px-8 py-5">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-slate-800 text-sm group-hover:text-gov-700 transition-colors">{doc.title}</span>
+                        <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{doc.type}</span>
+                            <span className="h-1 w-1 rounded-full bg-slate-200"></span>
+                            <span className="text-[10px] font-bold text-gov-600 uppercase tracking-tighter">{doc.originatingDept}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5">
+                      <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest border shadow-sm ${
+                        doc.priority === 'Highly Urgent' ? 'bg-red-50 text-red-700 border-red-100' :
+                        doc.priority === 'Urgent' ? 'bg-orange-50 text-orange-700 border-orange-100' :
+                        'bg-blue-50 text-blue-700 border-blue-100'
+                      }`}>
+                        {doc.priority}
+                      </span>
+                    </td>
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-2.5 w-2.5 rounded-full shadow-sm ${
+                          doc.status === DocumentStatus.FOR_APPROVAL ? 'bg-amber-500 animate-pulse' :
+                          doc.status === DocumentStatus.APPROVED ? 'bg-emerald-500' : 
+                          doc.status === DocumentStatus.RECEIVED ? 'bg-blue-500' : 'bg-slate-300'
+                        }`}></div>
+                        <span className="text-xs font-black text-slate-700 uppercase tracking-tight">{doc.status}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5 text-right">
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <button className="p-2.5 bg-white text-slate-400 hover:text-gov-600 hover:shadow-md rounded-xl transition-all border border-slate-100">
+                           <MoreVertical size={16} />
+                         </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filteredDocs.length === 0 && (
+                <div className="p-20 text-center flex flex-col items-center">
+                    <div className="h-20 w-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                        <FileText size={40} className="text-slate-200" />
+                    </div>
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No documents found matching criteria</p>
+                </div>
+            )}
+          </div>
+        </div>
+
+        {/* Sidebar Detail View */}
+        <div className="w-full lg:w-[400px] space-y-6">
+          {selectedDoc ? (
+            <div className="bg-white rounded-[2rem] shadow-2xl shadow-gov-900/10 border border-slate-100 p-8 space-y-8 sticky top-24 animate-in slide-in-from-right duration-500 overflow-y-auto max-h-[calc(100vh-120px)]">
+              <div className="flex justify-between items-start">
+                <div>
+                    <p className="text-[10px] font-black text-gov-600 uppercase tracking-widest leading-none">Metadata Detail</p>
+                    <h2 className="text-xl font-black text-slate-900 mt-2">Routing Overview</h2>
+                </div>
+                <button onClick={() => setSelectedDoc(null)} className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 transition-colors">×</button>
+              </div>
+              
+              <div className="space-y-8">
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.25em]">Workflow Progress</label>
+                  <div className="mt-6 space-y-6 relative">
+                    {selectedDoc.routingHistory.map((step, idx) => (
+                      <div key={step.id} className="flex gap-5 relative group">
+                        {idx !== selectedDoc.routingHistory.length - 1 && (
+                          <div className="absolute left-[13px] top-7 bottom-[-24px] w-[2px] bg-slate-100"></div>
+                        )}
+                        <div className={`h-7 w-7 rounded-xl flex items-center justify-center shrink-0 border-2 transition-all ${
+                          idx === 0 ? 'bg-gov-600 border-gov-600 text-white shadow-lg shadow-gov-600/30' : 'bg-white border-slate-200 text-slate-300'
+                        }`}>
+                          <CheckCircle size={14} />
+                        </div>
+                        <div className="flex-1 pb-2">
+                          <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{step.status}</p>
+                          <p className="text-[10px] text-slate-400 font-bold mt-0.5">{new Date(step.timestamp).toLocaleDateString()} • {new Date(step.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                          {step.remarks && <p className="mt-3 text-[11px] font-medium text-slate-600 bg-slate-50 p-3 rounded-2xl italic leading-relaxed border border-slate-100">"{step.remarks}"</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-8 border-t border-slate-100">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.25em] mb-4 block">Encrypted Attachments</label>
+                  <div className="space-y-3">
+                    {selectedDoc.attachments.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3.5 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-gov-50 hover:border-gov-200 transition-all cursor-pointer group">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 bg-white rounded-lg flex items-center justify-center shadow-sm text-gov-600"><FileText size={16} /></div>
+                          <span className="text-xs font-bold text-slate-700 truncate max-w-[160px]">{file}</span>
+                        </div>
+                        <Paperclip size={14} className="text-slate-300 group-hover:text-gov-500" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Contextual Actions based on Role */}
+                <div className="pt-8 border-t border-slate-100 space-y-3">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.25em] mb-4 block">Authorization Controls</label>
+                  
+                  {currentUser.role === Role.DEPT_HEAD && (
+                    <div className="grid grid-cols-1 gap-3">
+                        <button onClick={() => handleDocAction(selectedDoc.id, 'APPROVE')} className="w-full bg-gov-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-gov-700 transition-all shadow-xl shadow-gov-600/20 flex items-center justify-center gap-3">
+                            <Shield size={18} /> Approve & E-Sign
+                        </button>
+                        <button onClick={() => handleDocAction(selectedDoc.id, 'RETURN')} className="w-full bg-white text-orange-600 border-2 border-orange-100 py-4 rounded-2xl font-black text-sm hover:bg-orange-50 transition-all flex items-center justify-center gap-3">
+                            <ArrowRight size={18} className="rotate-180" /> Return for Revision
+                        </button>
+                    </div>
+                  )}
+
+                  {currentUser.role === Role.ADMIN_CLERK && (
+                    <button onClick={() => handleDocAction(selectedDoc.id, 'FORWARD')} className="w-full bg-gov-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-gov-700 transition-all shadow-xl shadow-gov-600/20 flex items-center justify-center gap-3">
+                        Forward to Evaluator <ChevronRight size={18} />
+                    </button>
+                  )}
+
+                  {currentUser.role === Role.EVALUATOR && (
+                    <button onClick={() => handleDocAction(selectedDoc.id, 'APPROVE')} className="w-full bg-gov-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-gov-700 transition-all shadow-xl shadow-gov-600/20 flex items-center justify-center gap-3">
+                        Recommend for Approval <CheckCircle size={18} />
+                    </button>
+                  )}
+
+                  <button onClick={() => handleDocAction(selectedDoc.id, 'REJECT')} className="w-full bg-white text-slate-400 py-3 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:text-red-600 hover:bg-red-50 transition-all">
+                      Terminate Routing
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-[2rem] border-2 border-dashed border-slate-200 p-12 text-center flex flex-col items-center justify-center h-full min-h-[500px] shadow-inner">
+              <div className="h-20 w-20 bg-slate-50 rounded-[1.5rem] flex items-center justify-center shadow-sm mb-6 animate-pulse">
+                <FileText className="text-slate-200" size={32} />
+              </div>
+              <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm">Standby Mode</h3>
+              <p className="text-[11px] text-slate-400 mt-3 max-w-[200px] font-medium leading-relaxed">Select a document from the centralized stream to initialize routing controls and metadata review.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const StatCard = ({ label, value, icon: Icon, color }: any) => {
+  const colors: any = {
+    blue: 'bg-blue-600 text-white shadow-blue-200',
+    indigo: 'bg-indigo-600 text-white shadow-indigo-200',
+    red: 'bg-red-600 text-white shadow-red-200',
+    emerald: 'bg-emerald-600 text-white shadow-emerald-200',
+  };
+  return (
+    <div className={`p-6 rounded-[2rem] border border-white/10 shadow-xl transition-all hover:scale-[1.03] flex justify-between items-center ${colors[color]}`}>
+      <div>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">{label}</p>
+        <p className="text-3xl font-black mt-2 leading-none italic">{value}</p>
+      </div>
+      <div className={`p-3 rounded-2xl bg-white/20 backdrop-blur-md`}>
+        <Icon size={24} />
+      </div>
+    </div>
+  );
+};
+
+const FilterTab = ({ active, label, onClick }: { active: boolean, label: string, onClick: () => void }) => (
+  <button 
+    onClick={onClick}
+    className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+      active ? 'bg-white text-gov-900 shadow-md' : 'text-slate-400 hover:text-slate-600'
+    }`}
+  >
+    {label}
+  </button>
+);
+
+export default InternalRoutingView;
