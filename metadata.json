@@ -1,5 +1,5 @@
 {
-  "name": "Talibon Digital Connect",
-  "description": "Enterprise-grade digital workflow system for the Municipality of Talibon. Features role-based access for Clerk, Treasurer, Engineering, Mayor, and Release officers.",
+  "name": "Talibon LGU Enterprise Core",
+  "description": "Restricted internal workflow system for Municipality of Talibon employees. Access requires Grade-5 security clearance.",
   "requestFramePermissions": []
 }

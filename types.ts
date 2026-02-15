@@ -6,7 +6,7 @@ export enum Role {
   ADMIN = 'ADMIN',
   STAFF = 'STAFF',
   HEAD = 'HEAD',
-  CITIZEN = 'CITIZEN',
+  // CITIZEN Role removed for Internal System
   // Legacy mappings
   CLERK = 'CLERK',
   MPDC_OFFICER = 'MPDC_OFFICER',

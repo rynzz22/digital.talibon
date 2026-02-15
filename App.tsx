@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DashboardLayout } from './layouts/DashboardLayout';
 
@@ -67,9 +67,9 @@ const AppRoutes = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-        <BrowserRouter>
+        <HashRouter>
             <AppRoutes />
-        </BrowserRouter>
+        </HashRouter>
     </AuthProvider>
   );
 }

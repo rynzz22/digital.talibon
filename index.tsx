@@ -2,13 +2,22 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean, error: Error | null }> {
-  constructor(props: { children: ReactNode }) {
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: Error) {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
@@ -21,18 +30,21 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
           <div className="bg-white p-8 rounded-xl shadow-lg border border-red-100 max-w-2xl w-full">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h1>
-            <p className="text-gray-600 mb-4">The application encountered an unexpected error.</p>
-            <div className="bg-red-50 p-4 rounded-lg border border-red-200 overflow-auto max-h-64">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">System Error</h1>
+            <p className="text-gray-600 mb-4">The application encountered a critical error during runtime.</p>
+            <div className="bg-red-50 p-4 rounded-lg border border-red-200 overflow-auto max-h-64 mb-6">
               <code className="text-sm text-red-800 font-mono">
                 {this.state.error?.toString()}
               </code>
             </div>
             <button 
-              onClick={() => window.location.reload()}
-              className="mt-6 px-6 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium"
+              onClick={() => {
+                  localStorage.clear();
+                  window.location.reload();
+              }}
+              className="px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-bold text-sm"
             >
-              Reload Application
+              Clear Cache & Reload
             </button>
           </div>
         </div>
@@ -47,6 +59,8 @@ const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
+
+console.log("Mounting LGU Talibon Enterprise Portal...");
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(

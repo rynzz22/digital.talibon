@@ -13,7 +13,8 @@ import {
   FileText, 
   PieChart, 
   MapPin, 
-  Archive 
+  Archive,
+  Lock
 } from '../components/Icons';
 
 interface DepartmentPortalProps {
@@ -34,11 +35,20 @@ const DepartmentPortal: React.FC<DepartmentPortalProps> = ({ user, currentView }
                 <div className="p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in">
                     <div className="flex justify-between items-end mb-6">
                         <div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 uppercase tracking-wider">
+                                    <Lock size={8} /> Internal Network
+                                </span>
+                                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+                                    Online
+                                </span>
+                            </div>
                             <h1 className="text-3xl font-black text-slate-900">{user.department}</h1>
-                            <p className="text-slate-500 font-medium">Departmental Overview & Operations</p>
+                            <p className="text-slate-500 font-medium">Departmental Operations & Analytics</p>
                         </div>
-                        <div className="bg-white border border-slate-200 px-4 py-2 rounded-lg text-sm text-slate-600 font-medium shadow-sm">
-                            {user.jobLevel} ACCESS LEVEL
+                        <div className="bg-white border border-slate-200 px-4 py-2 rounded-lg text-sm text-slate-600 font-medium shadow-sm flex flex-col items-end">
+                            <span className="text-[10px] text-slate-400 uppercase tracking-widest">Security Clearance</span>
+                            <span className="font-bold text-slate-800">{user.jobLevel}</span>
                         </div>
                     </div>
                     
@@ -58,7 +68,7 @@ const DepartmentPortal: React.FC<DepartmentPortalProps> = ({ user, currentView }
                             </div>
                         </div>
                         <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
-                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Team Active</h3>
+                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Personnel Active</h3>
                             <div className="flex items-end justify-between">
                                 <span className="text-4xl font-black text-emerald-600">8</span>
                                 <Users className="text-slate-300" size={32} />
@@ -68,20 +78,28 @@ const DepartmentPortal: React.FC<DepartmentPortalProps> = ({ user, currentView }
 
                     {/* Quick Access Grid */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-                        <div className="p-6 bg-slate-50 rounded-xl border border-slate-200 hover:border-gov-400 cursor-pointer transition-all text-center">
-                            <FileText className="mx-auto text-gov-600 mb-3" size={24} />
+                        <div className="p-6 bg-slate-50 rounded-xl border border-slate-200 hover:border-gov-400 cursor-pointer transition-all text-center group">
+                            <div className="bg-white p-3 rounded-lg w-fit mx-auto mb-3 shadow-sm group-hover:shadow-md transition-shadow">
+                                <FileText className="text-gov-600" size={24} />
+                            </div>
                             <h4 className="font-bold text-slate-700 text-sm">Document Registry</h4>
                         </div>
-                        <div className="p-6 bg-slate-50 rounded-xl border border-slate-200 hover:border-gov-400 cursor-pointer transition-all text-center">
-                            <MapPin className="mx-auto text-orange-600 mb-3" size={24} />
+                        <div className="p-6 bg-slate-50 rounded-xl border border-slate-200 hover:border-gov-400 cursor-pointer transition-all text-center group">
+                            <div className="bg-white p-3 rounded-lg w-fit mx-auto mb-3 shadow-sm group-hover:shadow-md transition-shadow">
+                                <MapPin className="text-orange-600" size={24} />
+                            </div>
                             <h4 className="font-bold text-slate-700 text-sm">Projects Map</h4>
                         </div>
-                        <div className="p-6 bg-slate-50 rounded-xl border border-slate-200 hover:border-gov-400 cursor-pointer transition-all text-center">
-                            <Archive className="mx-auto text-purple-600 mb-3" size={24} />
+                        <div className="p-6 bg-slate-50 rounded-xl border border-slate-200 hover:border-gov-400 cursor-pointer transition-all text-center group">
+                            <div className="bg-white p-3 rounded-lg w-fit mx-auto mb-3 shadow-sm group-hover:shadow-md transition-shadow">
+                                <Archive className="text-purple-600" size={24} />
+                            </div>
                             <h4 className="font-bold text-slate-700 text-sm">Records Vault</h4>
                         </div>
-                        <div className="p-6 bg-slate-50 rounded-xl border border-slate-200 hover:border-gov-400 cursor-pointer transition-all text-center">
-                            <Settings className="mx-auto text-slate-600 mb-3" size={24} />
+                        <div className="p-6 bg-slate-50 rounded-xl border border-slate-200 hover:border-gov-400 cursor-pointer transition-all text-center group">
+                            <div className="bg-white p-3 rounded-lg w-fit mx-auto mb-3 shadow-sm group-hover:shadow-md transition-shadow">
+                                <Settings className="text-slate-600" size={24} />
+                            </div>
                             <h4 className="font-bold text-slate-700 text-sm">Office Settings</h4>
                         </div>
                     </div>

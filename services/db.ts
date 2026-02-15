@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConnected } from '../lib/supabase';
 import { Application, ApplicationStatus, Department, Role, User, Message, InternalDocument, DocumentStatus, DocType, Voucher, VoucherStage, VoucherType } from '../types';
 import { INITIAL_APPLICATIONS, MOCK_USERS, MOCK_INTERNAL_DOCS, MOCK_VOUCHERS } from '../constants';
 
@@ -8,7 +8,7 @@ let _mockVouchers = [...MOCK_VOUCHERS];
 let _mockApps = [...INITIAL_APPLICATIONS];
 
 const isConnected = () => {
-  return !!supabase.supabaseUrl && !!supabase.supabaseKey && supabase.supabaseKey.length > 0;
+  return isSupabaseConnected;
 };
 
 export const DB = {
