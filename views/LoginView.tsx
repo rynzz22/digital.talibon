@@ -53,9 +53,24 @@ const LoginView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 bg-[url('https://phillexevansnotebook.wordpress.com/wp-content/uploads/2019/01/20180410_153642.jpg')] bg-cover bg-center bg-blend-multiply">
+    <div className="min-h-screen relative flex flex-col items-center justify-end p-4 pb-12 md:pb-24 overflow-hidden">
       
-      <div className="relative w-full max-w-5xl bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-auto md:h-[600px] animate-in fade-in zoom-in duration-500 border border-slate-700">
+      {/* Background Layer with Blur and Lightness */}
+      <div 
+        className="absolute inset-0 z-0"
+        style={{
+            backgroundImage: "url('https://phillexevansnotebook.wordpress.com/wp-content/uploads/2019/01/20180410_153642.jpg')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            filter: 'blur(3px) brightness(1.15) contrast(0.95)'
+        }}
+      ></div>
+
+      {/* Subtle Overlay to ensure text readability */}
+      <div className="absolute inset-0 z-0 bg-white/10"></div>
+      
+      {/* Login Card Container */}
+      <div className="relative z-10 w-full max-w-5xl bg-white rounded-[2rem] shadow-[0_40px_70px_-15px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col md:flex-row h-auto md:h-[600px] animate-in slide-in-from-bottom-12 duration-700 border border-white/50">
         
         {/* Left Panel: Branding */}
         <div className="md:w-5/12 bg-slate-950 p-12 text-white flex flex-col justify-between relative overflow-hidden">
