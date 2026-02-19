@@ -1,10 +1,12 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Department, JobLevel } from '../types';
 import { AuthService } from '../services/auth.service';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, department: Department, jobLevel: JobLevel) => Promise<boolean>;
+  login: (email: string, department: Department, jobLevel: JobLevel, password?: string) => Promise<void>;
+  register: (email: string, department: Department, jobLevel: JobLevel, password?: string, fullName?: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -33,20 +35,20 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
     initAuth();
   }, []);
 
-  const login = async (email: string, department: Department, jobLevel: JobLevel): Promise<boolean> => {
-    try {
-      const response = await AuthService.login({ email, department, jobLevel });
-      
-      // Store session securely
-      localStorage.setItem('lgu_token', response.token);
-      localStorage.setItem('lgu_user', JSON.stringify(response.user));
-      
-      setUser(response.user);
-      return true;
-    } catch (error) {
-      console.error("Login failed", error);
-      return false;
-    }
+  const login = async (email: string, department: Department, jobLevel: JobLevel, password?: string): Promise<void> => {
+    // We let the error propagate so the UI can handle specific cases (e.g. "Email not confirmed")
+    const response = await AuthService.login({ email, department, jobLevel, password });
+    
+    // Store session securely
+    localStorage.setItem('lgu_token', response.token);
+    localStorage.setItem('lgu_user', JSON.stringify(response.user));
+    
+    setUser(response.user);
+  };
+
+  const register = async (email: string, department: Department, jobLevel: JobLevel, password?: string, fullName?: string): Promise<void> => {
+      // We let the error propagate
+      await AuthService.register({ email, department, jobLevel, password, fullName });
   };
 
   const logout = () => {
@@ -56,7 +58,7 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, isLoading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

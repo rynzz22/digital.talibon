@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { JobLevel } from '../types';
 import GlobalSearch from '../components/GlobalSearch';
@@ -9,7 +8,11 @@ import {
   Inbox, Landmark, Briefcase, Folder 
 } from 'lucide-react';
 
-export const DashboardLayout: React.FC = () => {
+interface DashboardLayoutProps {
+    children?: React.ReactNode;
+}
+
+export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { user, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const navigate = useNavigate();
@@ -124,9 +127,9 @@ export const DashboardLayout: React.FC = () => {
           </div>
         </header>
 
-        {/* Router Outlet */}
+        {/* Router Outlet / Children */}
         <main className="flex-1 overflow-x-hidden bg-slate-50">
-           <Outlet />
+           {children}
         </main>
       </div>
     </div>

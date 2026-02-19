@@ -83,7 +83,15 @@ export const MOCK_INTERNAL_DOCS: InternalDocument[] = [
     priority: 'Routine',
     dateCreated: '2023-10-27T08:00:00Z',
     lastUpdated: '2023-10-27T08:00:00Z',
-    attachments: ['letter_san_agustin.pdf'],
+    attachments: [
+      {
+        name: 'letter_san_agustin.pdf',
+        url: '#',
+        path: 'uploads/letter_san_agustin.pdf',
+        type: 'application/pdf',
+        size: 150000
+      }
+    ],
     routingHistory: [
       { id: 'step-1', fromDept: Department.RECEIVING, toUser: 'Maria Santos', timestamp: '2023-10-27T08:00:00Z', status: DocumentStatus.RECEIVED, remarks: 'Encoded and routed to Mayor.' }
     ]
@@ -99,7 +107,22 @@ export const MOCK_INTERNAL_DOCS: InternalDocument[] = [
     priority: 'Urgent',
     dateCreated: '2023-10-25T10:00:00Z',
     lastUpdated: '2023-10-26T14:30:00Z',
-    attachments: ['blueprint_sj_v2.dwg', 'cost_estimates.xlsx'],
+    attachments: [
+      {
+        name: 'blueprint_sj_v2.dwg',
+        url: '#',
+        path: 'uploads/blueprint_sj_v2.dwg',
+        type: 'image/vnd.dwg',
+        size: 5000000
+      },
+      {
+        name: 'cost_estimates.xlsx',
+        url: '#',
+        path: 'uploads/cost_estimates.xlsx',
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        size: 45000
+      }
+    ],
     routingHistory: [
       { id: 'step-1', fromDept: Department.ENGINEERING, toUser: 'Engr. Jun Rico', timestamp: '2023-10-25T10:00:00Z', status: DocumentStatus.RECEIVED },
       { id: 'step-2', fromDept: Department.ENGINEERING, toUser: 'Arch. Planas', timestamp: '2023-10-26T14:30:00Z', status: DocumentStatus.ROUTED, remarks: 'For PDC Endorsement.' }
@@ -116,7 +139,15 @@ export const MOCK_INTERNAL_DOCS: InternalDocument[] = [
     priority: 'Highly Urgent',
     dateCreated: '2023-10-20T09:00:00Z',
     lastUpdated: '2023-10-27T11:00:00Z',
-    attachments: ['aip_2024_final.pdf'],
+    attachments: [
+      {
+        name: 'aip_2024_final.pdf',
+        url: '#',
+        path: 'uploads/aip_2024_final.pdf',
+        type: 'application/pdf',
+        size: 2500000
+      }
+    ],
     routingHistory: [
       { id: 'step-1', fromDept: Department.SB_SECRETARIAT, toUser: 'SB Sec', timestamp: '2023-10-20T09:00:00Z', status: DocumentStatus.RECEIVED },
       { id: 'step-2', fromDept: Department.SB_SECRETARIAT, toUser: 'Hon. Jan-Jan Reyes', timestamp: '2023-10-27T11:00:00Z', status: DocumentStatus.FOR_APPROVAL, remarks: 'Transmitted for LCE Signature.' }

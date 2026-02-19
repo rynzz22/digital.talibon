@@ -1,4 +1,3 @@
-
 import {
   LayoutDashboard,
   FileText,
@@ -49,7 +48,13 @@ import {
   Inbox,
   Lock,
   UserCircle,
-  Loader2
+  Loader2,
+  CloudRain,
+  Wind,
+  Droplets,
+  UserPlus,
+  ArrowLeft,
+  Video
 } from 'lucide-react';
 
 export {
@@ -102,5 +107,11 @@ export {
   Inbox,
   Lock,
   UserCircle,
-  Loader2
+  Loader2,
+  CloudRain,
+  Wind,
+  Droplets,
+  UserPlus,
+  ArrowLeft,
+  Video
 };

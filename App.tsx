@@ -5,19 +5,20 @@ import { DashboardLayout } from './layouts/DashboardLayout';
 
 // Views
 import LoginView from './views/LoginView';
-import DepartmentPortal from './views/DepartmentPortal'; // Used as Dashboard placeholder for now
+import DepartmentPortal from './views/DepartmentPortal'; 
 import CommunicationsView from './views/CommunicationsView';
 import VoucherMonitorView from './views/VoucherMonitorView';
 import InternalRoutingView from './views/InternalRoutingView';
 import ChatPortal from './views/ChatPortal';
-import { ProjectsModule } from './views/SystemModules'; // Repurposing existing modules
+import { ProjectsModule } from './views/SystemModules'; 
 import ExecutiveDashboard from './views/ExecutiveDashboard';
 
 // Guards
 import { RoleGuard } from './components/RoleGuard';
 import { JobLevel } from './types';
 
-const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
+// Fixed: Correctly typed children prop using React.FC to prevent TS error about missing children property in JSX.
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
   
   if (isLoading) return <div className="h-screen flex items-center justify-center bg-slate-50">Loading Secure Workspace...</div>;
@@ -35,31 +36,35 @@ const AppRoutes = () => {
         <Routes>
             <Route path="/login" element={<LoginView />} />
             
-            <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-                {/* Default Dashboard Route based on Role */}
-                <Route index element={
-                    user?.jobLevel === JobLevel.EXECUTIVE ? <ExecutiveDashboard currentUser={user} /> :
-                    <DepartmentPortal user={user!} currentView="DASHBOARD" />
-                } />
-                
-                <Route path="workbench" element={<InternalRoutingView currentUser={user!} />} />
-                <Route path="chat" element={<ChatPortal currentUser={user!} />} />
-                
-                <Route path="communications" element={<CommunicationsView />} />
-                <Route path="vouchers" element={<VoucherMonitorView />} />
-                
-                {/* Restricted Route Example */}
-                <Route path="projects" element={
-                    <RoleGuard allowedLevels={[JobLevel.EXECUTIVE, JobLevel.DEPT_HEAD, JobLevel.ADMIN]}>
-                        <ProjectsModule />
-                    </RoleGuard>
-                } />
-                
-                {/* Placeholder for Archive */}
-                <Route path="archive" element={<div className="p-8">Archive Module Coming Soon</div>} />
-            </Route>
-            
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/*" element={
+                <ProtectedRoute>
+                    <DashboardLayout>
+                        <Routes>
+                            <Route path="/" element={
+                                user?.jobLevel === JobLevel.EXECUTIVE ? <ExecutiveDashboard currentUser={user!} /> :
+                                <DepartmentPortal user={user!} currentView="DASHBOARD" />
+                            } />
+                            
+                            <Route path="/workbench" element={<InternalRoutingView currentUser={user!} />} />
+                            <Route path="/chat" element={<ChatPortal currentUser={user!} />} />
+                            
+                            <Route path="/communications" element={<CommunicationsView />} />
+                            <Route path="/vouchers" element={<VoucherMonitorView />} />
+                            
+                            <Route path="/projects" element={
+                                <RoleGuard allowedLevels={[JobLevel.EXECUTIVE, JobLevel.DEPT_HEAD, JobLevel.ADMIN]}>
+                                    <ProjectsModule />
+                                </RoleGuard>
+                            } />
+                            
+                            <Route path="/archive" element={<div className="p-8">Archive Module Coming Soon</div>} />
+
+                             {/* Redirect unknown routes to home */}
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                        </Routes>
+                    </DashboardLayout>
+                </ProtectedRoute>
+            } />
         </Routes>
     );
 };

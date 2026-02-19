@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { CommunicationsService, CreateDocumentPayload } from '../services/communications.service';
 import { DocType, DocumentStatus, InternalDocument, Department } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { Inbox, Send, Search, Clock, ChevronRight, Filter, Plus, X } from '../components/Icons';
+import { Inbox, Send, Search, Clock, ChevronRight, Filter, Plus, X, FileText, User, Calendar, CheckCircle } from '../components/Icons';
 
 const CommunicationsView: React.FC = () => {
   const { user } = useAuth();
@@ -11,6 +11,7 @@ const CommunicationsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'incoming' | 'outgoing'>('incoming');
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedComm, setSelectedComm] = useState<InternalDocument | null>(null);
 
   const fetchDocs = async () => {
     setIsLoading(true);
@@ -113,7 +114,11 @@ const CommunicationsView: React.FC = () => {
                   {isLoading ? (
                       <tr><td colSpan={6} className="p-12 text-center text-slate-400">Loading Documents...</td></tr>
                   ) : filteredDocs.map(doc => (
-                     <tr key={doc.id} className="hover:bg-slate-50 transition-colors group cursor-pointer">
+                     <tr 
+                        key={doc.id} 
+                        onClick={() => setSelectedComm(doc)}
+                        className="hover:bg-slate-50 transition-colors group cursor-pointer"
+                     >
                         <td className="px-6 py-4">
                            <span className="font-mono text-xs font-bold bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200">{doc.trackingId}</span>
                         </td>
@@ -188,6 +193,78 @@ const CommunicationsView: React.FC = () => {
                 </form>
             </div>
         </div>
+      )}
+
+      {/* DETAIL MODAL */}
+      {selectedComm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="p-6 border-b border-gray-100 flex justify-between items-start bg-slate-50">
+                    <div>
+                        <div className="flex gap-2 mb-2">
+                             <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded uppercase tracking-wider">{selectedComm.type}</span>
+                             <span className="text-[10px] font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-mono">{selectedComm.trackingId}</span>
+                        </div>
+                        <h2 className="text-xl font-bold text-slate-900 leading-tight">{selectedComm.title}</h2>
+                    </div>
+                    <button onClick={() => setSelectedComm(null)} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
+                </div>
+                
+                <div className="p-8 overflow-y-auto space-y-6">
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-1">
+                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1"><User size={12}/> Origin</label>
+                             <p className="text-sm font-bold text-slate-800">{selectedComm.originatingDept}</p>
+                        </div>
+                        <div className="space-y-1">
+                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1"><Calendar size={12}/> Date Received</label>
+                             <p className="text-sm font-bold text-slate-800">{new Date(selectedComm.dateCreated).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Document Routing History</h4>
+                        <div className="space-y-4">
+                            {selectedComm.routingHistory.map((step, idx) => (
+                                <div key={step.id} className="flex gap-3 relative">
+                                    {idx !== selectedComm.routingHistory.length - 1 && <div className="absolute left-[9px] top-6 bottom-[-16px] w-0.5 bg-slate-200"></div>}
+                                    <div className="h-5 w-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 z-10 border-2 border-white shadow-sm">
+                                        <CheckCircle size={10} className="text-white"/>
+                                    </div>
+                                    <div className="pb-1">
+                                        <p className="text-xs font-bold text-slate-800">{step.status}</p>
+                                        <p className="text-[10px] text-slate-500">{new Date(step.timestamp).toLocaleString()} • {step.toUser}</p>
+                                        {step.remarks && <p className="text-xs text-slate-600 italic mt-1">"{step.remarks}"</p>}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                        {selectedComm.attachments.length === 0 && <p className="text-xs text-slate-400 italic">No attachments found.</p>}
+                        {selectedComm.attachments.map((file, i) => (
+                            <a 
+                                key={i} 
+                                href={file.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold border border-blue-100 cursor-pointer hover:bg-blue-100 transition-colors"
+                            >
+                                <FileText size={14} /> {file.name}
+                            </a>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="p-6 border-t border-gray-100 bg-slate-50 flex justify-end gap-3">
+                    <button onClick={() => setSelectedComm(null)} className="px-5 py-2.5 text-slate-500 font-bold hover:bg-slate-200 rounded-xl transition-colors">Close</button>
+                    <button className="px-5 py-2.5 bg-gov-600 text-white font-bold rounded-xl hover:bg-gov-700 shadow-lg shadow-gov-200 flex items-center gap-2">
+                        <Send size={16} /> Forward / Reply
+                    </button>
+                </div>
+            </div>
+          </div>
       )}
     </div>
   );

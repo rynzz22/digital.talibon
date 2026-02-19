@@ -1,43 +1,31 @@
+
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Helper to safely access env variables in browser environments
-const getEnv = (key: string) => {
-  try {
-    // @ts-ignore
-    if (typeof process !== 'undefined' && process.env) {
-      // @ts-ignore
-      return process.env[key];
-    }
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      // @ts-ignore
-      return import.meta.env[key];
-    }
-    return undefined;
-  } catch {
-    return undefined;
-  }
-};
+// LIVE CREDENTIALS FROM USER INPUT
+// Note: We derive the URL from the project ref if possible, or use the standard supabase.co format
+const PROJECT_REF = "acpousqosysoryaktizv"; // Keep existing ref or replace if you have a new one
+const LIVE_URL = `https://${PROJECT_REF}.supabase.co`;
+const LIVE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjcG91c3Fvc3lzb3J5YWt0aXp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODQyMzEsImV4cCI6MjA4Njg2MDIzMX0.aR3gkFxh97C22uatffmgMzhApZNna3FvWOii-jg4gKg";
 
-const SUPABASE_URL = getEnv('REACT_APP_SUPABASE_URL');
-const SUPABASE_KEY = getEnv('REACT_APP_SUPABASE_ANON_KEY');
+// Safe access to env variables to prevent crashes
+const env = (import.meta as any).env || {};
+const SUPABASE_URL = env.VITE_SUPABASE_URL || LIVE_URL;
+const SUPABASE_KEY = env.VITE_SUPABASE_ANON_KEY || LIVE_ANON_KEY;
 
 export let supabase: SupabaseClient;
 export let isSupabaseConnected = false;
 
 if (SUPABASE_URL && SUPABASE_KEY) {
-  supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-  isSupabaseConnected = true;
+  try {
+    supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    isSupabaseConnected = true;
+    console.log("Supabase Client Initialized");
+  } catch (err) {
+    console.warn("Supabase initialization failed.");
+    isSupabaseConnected = false;
+  }
 } else {
-  // Create a safe fallback object that allows the app to load.
-  // The 'isConnected' check in db.ts will fail (as intended) because supabaseUrl is empty,
-  // causing the app to use Mock Data instead of crashing.
-  console.warn("Supabase credentials not found. Switching to MOCK DATA mode.");
-  supabase = {
-    supabaseUrl: '',
-    supabaseKey: '',
-    from: () => ({ select: () => ({}), insert: () => ({}), update: () => ({}), eq: () => ({}) }),
-    auth: { signInWithPassword: () => ({}), signOut: () => ({}) }
-  } as unknown as SupabaseClient;
-  isSupabaseConnected = false;
+    // Mock client fallback
+    isSupabaseConnected = false;
+    supabase = {} as SupabaseClient;
 }

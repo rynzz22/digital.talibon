@@ -1,27 +1,10 @@
+
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosError } from 'axios';
 
-// Helper to safely access env variables in browser environments
-const getEnv = (key: string, defaultValue: string) => {
-  try {
-    // @ts-ignore
-    if (typeof process !== 'undefined' && process.env) {
-      // @ts-ignore
-      return process.env[key] || defaultValue;
-    }
-    // Check for Vite/other bundler injections if process is missing
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      // @ts-ignore
-      return import.meta.env[key] || defaultValue;
-    }
-    return defaultValue;
-  } catch {
-    return defaultValue;
-  }
-};
-
 // Enterprise API Configuration
-const API_URL = getEnv('REACT_APP_API_URL', 'https://api.talibon.gov.ph/v1');
+// FIXED: Safe access to env variables
+const env = (import.meta as any).env || {};
+const API_URL = env.VITE_API_URL || 'https://api.talibon.gov.ph/v1';
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -53,9 +36,12 @@ apiClient.interceptors.response.use(
     if (error.response) {
       // Handle 401 Unauthorized (Expired Token)
       if (error.response.status === 401) {
-        localStorage.removeItem('lgu_token');
-        localStorage.removeItem('lgu_user');
-        window.location.href = '/login?expired=true';
+        // Only redirect if we are not already on login page
+        if (!window.location.pathname.includes('/login')) {
+            localStorage.removeItem('lgu_token');
+            localStorage.removeItem('lgu_user');
+            window.location.href = '/login?expired=true';
+        }
       }
       
       // Handle 403 Forbidden (RBAC violation)

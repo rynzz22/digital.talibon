@@ -161,6 +161,14 @@ export interface RoutingStep {
   remarks?: string;
 }
 
+export interface AttachmentMeta {
+  name: string;
+  url: string;
+  path: string;
+  type: string;
+  size: number;
+}
+
 export interface InternalDocument {
   id: string;
   trackingId: string;
@@ -172,7 +180,7 @@ export interface InternalDocument {
   priority: 'Routine' | 'Urgent' | 'Highly Urgent';
   dateCreated: string;
   lastUpdated: string;
-  attachments: string[]; // URLs to storage
+  attachments: AttachmentMeta[]; // Updated to object array
   routingHistory: RoutingStep[];
 }
 

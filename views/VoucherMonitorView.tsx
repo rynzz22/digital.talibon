@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { DB } from '../services/db';
 import { Voucher, VoucherStage, VoucherType, User, Role } from '../types';
@@ -30,6 +31,8 @@ const VoucherMonitorView: React.FC = () => {
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!user) return;
+
     const formData = new FormData(e.currentTarget);
     
     await DB.createVoucher({
@@ -37,8 +40,8 @@ const VoucherMonitorView: React.FC = () => {
         payee: formData.get('payee') as string,
         particulars: formData.get('particulars') as string,
         amount: Number(formData.get('amount')),
-        refNumber: formData.get('refNumber') as string,
-    });
+        refNumber: formData.get('refNumber') as string || undefined,
+    }, user.id);
     
     setIsCreateOpen(false);
     refreshData();
@@ -54,12 +57,12 @@ const VoucherMonitorView: React.FC = () => {
   // Logic to determine if user can act on the selected voucher
   const canAct = (v: Voucher) => {
     if (!user) return false;
-    // Simple RBAC logic for demo
-    if (v.currentStage === VoucherStage.PREPARATION && user.role === Role.ADMIN_CLERK) return true;
-    if (v.currentStage === VoucherStage.BUDGET_REVIEW && user.role === Role.BUDGET_OFFICER) return true;
-    if (v.currentStage === VoucherStage.ACCOUNTING_AUDIT && user.role === Role.ACCOUNTANT) return true;
-    if (v.currentStage === VoucherStage.MAYOR_APPROVAL && user.role === Role.MAYOR) return true;
-    if (v.currentStage === VoucherStage.TREASURY_CHECK && user.role === Role.TREASURER) return true;
+    // Simple RBAC logic
+    if (v.currentStage === VoucherStage.PREPARATION) return true; // Anyone can edit in prep in this demo
+    if (v.currentStage === VoucherStage.BUDGET_REVIEW && user.department.includes('Budget')) return true;
+    if (v.currentStage === VoucherStage.ACCOUNTING_AUDIT && user.department.includes('Accounting')) return true;
+    if (v.currentStage === VoucherStage.MAYOR_APPROVAL && user.department.includes('Mayor')) return true;
+    if (v.currentStage === VoucherStage.TREASURY_CHECK && user.department.includes('Treasury')) return true;
     return false; // View only
   };
 
@@ -85,7 +88,7 @@ const VoucherMonitorView: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <p className="text-xs font-bold text-slate-400 uppercase">Total in Pipeline</p>
-            <p className="text-2xl font-black text-slate-900 mt-1">₱ {(vouchers.reduce((acc, v) => acc + v.amount, 0)/1000000).toFixed(1)}M</p>
+            <p className="text-2xl font-black text-slate-900 mt-1">₱ {(vouchers.reduce((acc, v) => acc + Number(v.amount), 0)/1000000).toFixed(1)}M</p>
          </div>
          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <p className="text-xs font-bold text-slate-400 uppercase">Pending Mayor's Sig</p>
@@ -145,7 +148,7 @@ const VoucherMonitorView: React.FC = () => {
                         </div>
                     </div>
                     <div className="text-left lg:text-right">
-                        <p className="text-2xl font-black text-slate-900">₱ {v.amount.toLocaleString()}</p>
+                        <p className="text-2xl font-black text-slate-900">₱ {Number(v.amount).toLocaleString()}</p>
                         <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Amount Payable</p>
                     </div>
                 </div>
@@ -249,7 +252,7 @@ const VoucherMonitorView: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="p-4 bg-slate-50 rounded-xl">
                             <label className="text-xs font-bold text-slate-400 uppercase">Amount</label>
-                            <p className="text-2xl font-black text-emerald-600">₱ {selectedVoucher.amount.toLocaleString()}</p>
+                            <p className="text-2xl font-black text-emerald-600">₱ {Number(selectedVoucher.amount).toLocaleString()}</p>
                         </div>
                         <div className="p-4 bg-slate-50 rounded-xl">
                             <label className="text-xs font-bold text-slate-400 uppercase">Current Stage</label>
