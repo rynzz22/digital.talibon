@@ -1,5 +1,8 @@
 {
   "name": "Talibon LGU Enterprise Core",
   "description": "Restricted internal workflow system for Municipality of Talibon employees. Access requires Grade-5 security clearance.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
 }
