@@ -14,7 +14,9 @@ import {
   MessageSquare,
   FileIcon, 
   ImageIcon,
-  X
+  X,
+  Loader2,
+  Check
 } from '../components/Icons'; 
 
 interface ChatPortalProps {
@@ -29,7 +31,13 @@ const ChatPortal: React.FC<ChatPortalProps> = ({ currentUser }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
+  // Features State
+  const [isCalling, setIsCalling] = useState<'video' | 'audio' | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Fixed: Removed generic type <any> from useLocation call
   const location = useLocation();
 
   useEffect(() => {
@@ -41,37 +49,52 @@ const ChatPortal: React.FC<ChatPortalProps> = ({ currentUser }) => {
   }, [currentUser.id]);
 
   useEffect(() => {
-     if (location.state && (location.state as any).contactId) {
-         setActiveContactId((location.state as any).contactId);
+     // Explicitly cast state to any to access custom properties
+     const state = location.state as any;
+     if (state && state.contactId) {
+         setActiveContactId(state.contactId);
          if (window.innerWidth < 768) setIsSidebarOpen(false);
          window.history.replaceState({}, document.title);
      }
   }, [location.state]);
 
+  // Realtime Subscription & Fetching
   useEffect(() => {
     if (!activeContactId) return;
+
+    // Initial Fetch
     const fetchMsgs = async () => {
         const data = await DB.getMessages(currentUser.id, activeContactId);
         setMessages(data);
     };
     fetchMsgs();
 
+    // Subscribe to new messages
     const channel = supabase
       .channel('public:messages')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
          const newMsg = payload.new;
-         if (
+         
+         // Only add if it belongs to this conversation
+         const isRelevant = 
             (newMsg.sender_id === currentUser.id && newMsg.recipient_id === activeContactId) ||
-            (newMsg.sender_id === activeContactId && newMsg.recipient_id === currentUser.id)
-         ) {
-            setMessages((prev) => [...prev, {
-                id: newMsg.id,
-                senderId: newMsg.sender_id,
-                content: newMsg.content,
-                timestamp: new Date(newMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                isRead: newMsg.is_read,
-                type: newMsg.message_type
-            }]);
+            (newMsg.sender_id === activeContactId && newMsg.recipient_id === currentUser.id);
+
+         if (isRelevant) {
+            setMessages((prev) => {
+                // Deduplicate based on content + time proximity if we have optimistic updates?
+                // For now, simpler: check if we already have this ID
+                if (prev.some(m => m.id === newMsg.id)) return prev;
+
+                return [...prev, {
+                    id: newMsg.id,
+                    senderId: newMsg.sender_id,
+                    content: newMsg.content,
+                    timestamp: new Date(newMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    isRead: newMsg.is_read,
+                    type: newMsg.message_type
+                }];
+            });
          }
       })
       .subscribe();
@@ -79,16 +102,56 @@ const ChatPortal: React.FC<ChatPortalProps> = ({ currentUser }) => {
     return () => { supabase.removeChannel(channel); };
   }, [activeContactId, currentUser.id]);
 
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isUploading]); // Scroll when messages change or upload starts
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const sendMessage = async (content: string, type: 'text' | 'image' | 'document' = 'text') => {
+    if (!activeContactId) return;
+
+    // Optimistic Update
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: Message = {
+        id: tempId,
+        senderId: currentUser.id,
+        content: content,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isRead: false,
+        type: type
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+
+    // Send to DB
+    await DB.sendMessage(currentUser.id, activeContactId, content, type);
+  };
+
+  const handleTextSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !activeContactId) return;
-    const tempText = inputText;
+    if (!inputText.trim()) return;
+    const text = inputText;
     setInputText(''); 
-    await DB.sendMessage(currentUser.id, activeContactId, tempText);
+    await sendMessage(text, 'text');
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+        setIsUploading(true);
+        const file = e.target.files[0];
+        try {
+            const meta = await DB.uploadDocumentFile(file);
+            if (meta) {
+                const type = file.type.startsWith('image/') ? 'image' : 'document';
+                await sendMessage(meta.url, type); // Send URL as content
+            }
+        } catch (error) {
+            console.error("Upload failed", error);
+            alert("Failed to upload file.");
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    }
   };
 
   const activeContact = contacts.find(c => c.id === activeContactId);
@@ -99,9 +162,37 @@ const ChatPortal: React.FC<ChatPortalProps> = ({ currentUser }) => {
       );
   }, [contacts, searchQuery]);
 
+  // Render content based on message type
+  const renderMessageContent = (msg: Message) => {
+      if (msg.type === 'image') {
+          return (
+              <div className="rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity border border-slate-200">
+                  <img src={msg.content} alt="Attachment" className="max-w-[240px] max-h-[300px] object-cover" />
+              </div>
+          );
+      }
+      if (msg.type === 'document') {
+          // Extract filename from URL or just show generic
+          const filename = msg.content.split('/').pop()?.split('?')[0] || 'Document';
+          return (
+              <a href={msg.content} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-slate-100 p-3 rounded-xl hover:bg-slate-200 transition-colors group">
+                  <div className="h-10 w-10 bg-white rounded-lg flex items-center justify-center text-slate-500 shadow-sm group-hover:scale-110 transition-transform">
+                      <FileIcon size={20} />
+                  </div>
+                  <div className="overflow-hidden">
+                      <p className="text-sm font-bold text-slate-700 truncate max-w-[150px]">{filename}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">Download</p>
+                  </div>
+              </a>
+          );
+      }
+      return msg.content;
+  };
+
   return (
     <div className="h-[calc(100vh-80px)] flex bg-slate-50 overflow-hidden relative border-t border-slate-100">
-      
+      <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+
       {/* Sidebar */}
       <div className={`${isSidebarOpen ? 'w-full md:w-80 lg:w-96' : 'w-0 md:w-20'} bg-white border-r border-slate-100 flex flex-col transition-all duration-300 absolute md:relative h-full z-20`}>
         <div className="p-6 border-b border-slate-50 bg-slate-50/30">
@@ -137,7 +228,7 @@ const ChatPortal: React.FC<ChatPortalProps> = ({ currentUser }) => {
                    <div className="h-12 w-12 rounded-2xl bg-slate-200 flex items-center justify-center text-slate-500 font-black border-2 border-white shadow-sm overflow-hidden text-lg italic">
                       {contact.avatar ? <img src={contact.avatar} className="h-full w-full object-cover" alt="avatar"/> : contact.name.charAt(0)}
                    </div>
-                   <div className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-4 border-white bg-emerald-500`}></div>
+                   <div className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-4 border-white ${contact.id === activeContactId ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
                 </div>
                 {isSidebarOpen && (
                     <div className="flex-1 min-w-0 animate-in fade-in slide-in-from-left-2">
@@ -169,8 +260,8 @@ const ChatPortal: React.FC<ChatPortalProps> = ({ currentUser }) => {
                    </div>
                 </div>
                 <div className="flex gap-1">
-                   <button className="p-2.5 text-slate-400 hover:text-gov-600 hover:bg-gov-50 rounded-xl transition-all"><Phone size={20}/></button>
-                   <button className="p-2.5 text-slate-400 hover:text-gov-600 hover:bg-gov-50 rounded-xl transition-all"><Video size={20}/></button>
+                   <button onClick={() => setIsCalling('audio')} className="p-2.5 text-slate-400 hover:text-gov-600 hover:bg-gov-50 rounded-xl transition-all"><Phone size={20}/></button>
+                   <button onClick={() => setIsCalling('video')} className="p-2.5 text-slate-400 hover:text-gov-600 hover:bg-gov-50 rounded-xl transition-all"><Video size={20}/></button>
                 </div>
              </div>
 
@@ -192,25 +283,32 @@ const ChatPortal: React.FC<ChatPortalProps> = ({ currentUser }) => {
                                         ? 'bg-gov-600 text-white rounded-br-none' 
                                         : 'bg-white text-slate-800 border border-slate-100 rounded-bl-none'
                                     }`}>
-                                        {msg.content}
+                                        {renderMessageContent(msg)}
                                     </div>
-                                    <span className="text-[9px] text-slate-400 font-black uppercase mt-2 px-1 tracking-tighter">
-                                        {msg.timestamp} • {isMe ? 'Delivered' : 'Received'}
+                                    <span className="text-[9px] text-slate-400 font-black uppercase mt-2 px-1 tracking-tighter flex items-center gap-1">
+                                        {msg.timestamp} • {isMe ? <Check size={10} /> : null}
                                     </span>
                                 </div>
                             </div>
                         )
                     })
                  )}
+                 {isUploading && (
+                     <div className="flex justify-end animate-pulse">
+                         <div className="bg-gov-50 text-gov-600 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
+                             <Loader2 size={12} className="animate-spin"/> Uploading encrypted attachment...
+                         </div>
+                     </div>
+                 )}
                  <div ref={messagesEndRef} />
              </div>
 
              {/* Input */}
              <div className="p-6 bg-white border-t border-slate-50">
-                <form onSubmit={handleSendMessage} className="flex gap-4 items-center">
+                <form onSubmit={handleTextSubmit} className="flex gap-4 items-center">
                     <div className="flex gap-1">
-                        <button type="button" className="p-3 text-slate-400 hover:text-gov-600 hover:bg-slate-50 rounded-2xl transition-all"><Paperclip size={20} /></button>
-                        <button type="button" className="p-3 text-slate-400 hover:text-gov-600 hover:bg-slate-50 rounded-2xl transition-all"><ImageIcon size={20} /></button>
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="p-3 text-slate-400 hover:text-gov-600 hover:bg-slate-50 rounded-2xl transition-all"><Paperclip size={20} /></button>
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="p-3 text-slate-400 hover:text-gov-600 hover:bg-slate-50 rounded-2xl transition-all"><ImageIcon size={20} /></button>
                     </div>
                     <div className="flex-1 relative">
                         <input 
@@ -221,7 +319,7 @@ const ChatPortal: React.FC<ChatPortalProps> = ({ currentUser }) => {
                            className="w-full border border-slate-200 rounded-[1.5rem] px-6 py-3.5 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-gov-500/10 focus:border-gov-500 bg-slate-50/50 transition-all"
                         />
                     </div>
-                    <button type="submit" disabled={!inputText.trim()} className="p-4 bg-gov-600 text-white rounded-2xl hover:bg-gov-700 transition-all shadow-xl shadow-gov-200 disabled:opacity-50 active:scale-95">
+                    <button type="submit" disabled={!inputText.trim() && !isUploading} className="p-4 bg-gov-600 text-white rounded-2xl hover:bg-gov-700 transition-all shadow-xl shadow-gov-200 disabled:opacity-50 active:scale-95">
                         <Send size={20} />
                     </button>
                 </form>
@@ -238,6 +336,33 @@ const ChatPortal: React.FC<ChatPortalProps> = ({ currentUser }) => {
            </div>
         )}
       </div>
+
+      {/* Call Modal Simulation */}
+      {isCalling && activeContact && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/90 backdrop-blur-md animate-in fade-in duration-300">
+              <div className="flex flex-col items-center text-white">
+                  <div className="h-32 w-32 rounded-full border-4 border-white/20 p-2 mb-8 relative">
+                      <div className="h-full w-full bg-slate-800 rounded-full flex items-center justify-center text-4xl font-bold italic overflow-hidden">
+                         {activeContact.avatar ? <img src={activeContact.avatar} className="h-full w-full object-cover"/> : activeContact.name.charAt(0)}
+                      </div>
+                      <div className="absolute -bottom-2 -right-2 bg-emerald-500 p-3 rounded-full animate-bounce">
+                          {isCalling === 'video' ? <Video size={24}/> : <Phone size={24}/>}
+                      </div>
+                  </div>
+                  <h3 className="text-3xl font-black italic tracking-tight">{activeContact.name}</h3>
+                  <p className="text-gov-400 font-bold uppercase tracking-[0.3em] mt-2 animate-pulse">Establishing Secure Uplink...</p>
+                  
+                  <div className="mt-16 flex gap-6">
+                      <button onClick={() => setIsCalling(null)} className="h-16 w-16 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-all shadow-xl shadow-red-900/50 hover:scale-110">
+                          <Phone size={28} className="rotate-[135deg]"/>
+                      </button>
+                      <button className="h-16 w-16 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all backdrop-blur-md">
+                          <MoreVertical size={24}/>
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
 
     </div>
   );

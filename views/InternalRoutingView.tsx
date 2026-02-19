@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { InternalDocument, DocumentStatus, Role, User, Department, DocType, JobLevel } from '../types';
+import { InternalDocument, DocumentStatus, Role, User, Department, DocType, JobLevel, AttachmentMeta } from '../types';
 import { DB } from '../services/db';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -19,7 +19,9 @@ import {
   Layers,
   Archive,
   Upload,
-  X
+  X,
+  FileIcon,
+  Loader2
 } from '../components/Icons';
 
 interface InternalRoutingViewProps {
@@ -33,8 +35,11 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDoc, setSelectedDoc] = useState<InternalDocument | null>(null);
   
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // New Modal & Upload State
+  const [isNewDocModalOpen, setIsNewDocModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadQueue, setUploadQueue] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadData = async () => {
       const data = await DB.getInternalDocuments();
@@ -72,23 +77,20 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
     switch(action) {
         case 'FORWARD':
             newStatus = DocumentStatus.UNDER_REVIEW;
-            // Logical routing: If Dept Head forwards, it usually goes to Evaluation or SB
             nextUser = 'u_eval';
             break;
         case 'APPROVE':
-            // If Mayor approves, it goes to Records for Release/Archive
             if (currentUser.jobLevel === JobLevel.EXECUTIVE) {
               newStatus = DocumentStatus.APPROVED;
               nextUser = 'u_records';
             } else {
-              // If Dept Head approves, it might go to Mayor for final signature
               newStatus = DocumentStatus.FOR_APPROVAL;
               nextUser = 'u_mayor';
             }
             break;
         case 'RETURN':
             newStatus = DocumentStatus.RETURNED;
-            nextUser = 'u_clerk'; // Back to originating clerk
+            nextUser = 'u_clerk'; 
             break;
         case 'REJECT':
             newStatus = DocumentStatus.REJECTED;
@@ -107,40 +109,58 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
     }
   };
 
-  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-        const file = e.target.files[0];
-        setIsUploading(true);
-        try {
-            const attachmentMeta = await DB.uploadDocumentFile(file);
-            if (attachmentMeta) {
-                const trackingId = `TAL-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
-                await DB.createInternalDocument({
-                    trackingId: trackingId,
-                    title: file.name.split('.')[0] || 'New Submission',
-                    type: DocType.MEMO,
-                    originatingDept: currentUser.department,
-                    currentHolderId: currentUser.id,
-                    status: DocumentStatus.RECEIVED,
-                    priority: 'Routine',
-                }, [attachmentMeta]);
-                loadData();
-                alert(`Document digitized and routed. ID: ${trackingId}`);
-            }
-        } catch (error) {
-            console.error(error);
-            alert("Upload failed.");
-        } finally {
-            setIsUploading(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-    }
+  const handleFilesAdded = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+          setUploadQueue(prev => [...prev, ...Array.from(e.target.files || [])]);
+      }
+  };
+
+  const removeFileFromQueue = (index: number) => {
+      setUploadQueue(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleCreateDocument = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setIsUploading(true);
+      const form = e.target as HTMLFormElement;
+      const formData = new FormData(form);
+
+      try {
+          const attachments: AttachmentMeta[] = [];
+          
+          // Process uploads sequentially
+          for (const file of uploadQueue) {
+              const meta = await DB.uploadDocumentFile(file);
+              if (meta) attachments.push(meta);
+          }
+
+          const trackingId = `TAL-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+          
+          await DB.createInternalDocument({
+              trackingId,
+              title: formData.get('title') as string,
+              type: formData.get('type') as DocType,
+              priority: formData.get('priority') as any,
+              originatingDept: currentUser.department,
+              currentHolderId: currentUser.id,
+              status: DocumentStatus.RECEIVED,
+          }, attachments);
+
+          loadData();
+          setIsNewDocModalOpen(false);
+          setUploadQueue([]);
+          
+      } catch (error) {
+          console.error("Creation failed", error);
+          alert("Failed to create document.");
+      } finally {
+          setIsUploading(false);
+      }
   };
 
   return (
     <div className="space-y-8 p-8 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelected} />
-
+      
       {/* Header & Stats */}
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
         <div>
@@ -152,12 +172,10 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
               <Archive size={18} /> Vault Access
             </button>
             <button 
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gov-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-gov-700 transition-all shadow-xl shadow-gov-200 active:scale-95 disabled:opacity-70"
+                onClick={() => setIsNewDocModalOpen(true)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gov-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-gov-700 transition-all shadow-xl shadow-gov-200 active:scale-95"
             >
-              {isUploading ? <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div> : <Upload size={18} />}
-              {isUploading ? 'Syncing...' : 'Digitise File'}
+              <Plus size={18} /> Digitise Document
             </button>
         </div>
       </div>
@@ -221,6 +239,11 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{doc.type}</span>
                             <span className="h-1 w-1 rounded-full bg-slate-200"></span>
                             <span className="text-[10px] font-bold text-gov-600 uppercase tracking-tighter">{doc.originatingDept}</span>
+                            {doc.attachments && doc.attachments.length > 0 && (
+                                <span className="flex items-center gap-1 text-[9px] font-bold bg-slate-100 text-slate-500 px-1.5 rounded">
+                                    <Paperclip size={10} /> {doc.attachments.length}
+                                </span>
+                            )}
                         </div>
                       </div>
                     </td>
@@ -312,6 +335,9 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
                         <Paperclip size={14} className="text-slate-300 group-hover:text-gov-500 shrink-0" />
                       </a>
                     ))}
+                    {selectedDoc.attachments.length === 0 && (
+                        <p className="text-xs text-slate-400 italic text-center p-4">No physical attachments digitized.</p>
+                    )}
                   </div>
                 </div>
                 
@@ -362,6 +388,85 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
           )}
         </div>
       </div>
+
+      {/* NEW DOCUMENT MODAL */}
+      {isNewDocModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+                <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50 rounded-t-[2.5rem]">
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tighter italic">Digitise Document</h2>
+                    <button onClick={() => setIsNewDocModalOpen(false)} className="p-2 hover:bg-white rounded-xl shadow-sm text-slate-400"><X size={24} /></button>
+                </div>
+                
+                <form onSubmit={handleCreateDocument} className="flex-1 overflow-y-auto p-8 space-y-6">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Document Title</label>
+                        <input name="title" type="text" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-gov-500/10 focus:outline-none" placeholder="e.g. Activity Proposal..." required />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Type</label>
+                            <select name="type" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-gov-500/10 focus:outline-none appearance-none" required>
+                                {Object.values(DocType).map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Priority</label>
+                            <select name="priority" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-gov-500/10 focus:outline-none appearance-none">
+                                <option value="Routine">Routine</option>
+                                <option value="Urgent">Urgent</option>
+                                <option value="Highly Urgent">Highly Urgent</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Attachments</label>
+                        <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-slate-50 transition-colors relative">
+                            <Upload size={32} className="text-slate-300 mb-2" />
+                            <p className="text-xs font-bold text-slate-500">Drag files here or click to browse</p>
+                            <input 
+                                type="file" 
+                                ref={fileInputRef}
+                                multiple 
+                                onChange={handleFilesAdded}
+                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                            />
+                        </div>
+                        
+                        {/* File Queue List */}
+                        {uploadQueue.length > 0 && (
+                            <div className="space-y-2 mt-4">
+                                {uploadQueue.map((file, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center shrink-0">
+                                                <FileIcon size={14} />
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-700 truncate">{file.name}</span>
+                                        </div>
+                                        <button type="button" onClick={() => removeFileFromQueue(idx)} className="text-slate-400 hover:text-red-500 p-1 transition-colors">
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        disabled={isUploading}
+                        className="w-full py-5 bg-gov-600 text-white font-black rounded-2xl hover:bg-gov-700 shadow-xl shadow-gov-200 mt-4 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        {isUploading ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
+                        {isUploading ? 'Uploading & Routing...' : 'Upload & Route Document'}
+                    </button>
+                </form>
+            </div>
+          </div>
+      )}
     </div>
   );
 };

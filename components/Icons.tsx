@@ -1,3 +1,4 @@
+
 import {
   LayoutDashboard,
   FileText,
@@ -54,7 +55,8 @@ import {
   Droplets,
   UserPlus,
   ArrowLeft,
-  Video
+  Video,
+  Check
 } from 'lucide-react';
 
 export {
@@ -113,5 +115,6 @@ export {
   Droplets,
   UserPlus,
   ArrowLeft,
-  Video
+  Video,
+  Check
 };

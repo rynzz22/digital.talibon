@@ -340,7 +340,7 @@ export const DB = {
     }));
   },
 
-  async sendMessage(senderId: string, recipientId: string, content: string): Promise<void> {
+  async sendMessage(senderId: string, recipientId: string, content: string, type: 'text' | 'image' | 'document' = 'text'): Promise<void> {
     if (!isConnected()) return;
 
     const { error } = await supabase
@@ -349,7 +349,7 @@ export const DB = {
         sender_id: senderId,
         recipient_id: recipientId,
         content: content,
-        message_type: 'text',
+        message_type: type,
         is_read: false
       });
       

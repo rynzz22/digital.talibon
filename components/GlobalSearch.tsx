@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Loader2, FileText, DollarSign, Briefcase, ChevronRight, X } from '../components/Icons';
 import { useNavigate } from 'react-router-dom';
