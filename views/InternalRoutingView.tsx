@@ -21,7 +21,8 @@ import {
   Upload,
   X,
   FileIcon,
-  Loader2
+  Loader2,
+  Menu
 } from '../components/Icons';
 
 interface InternalRoutingViewProps {
@@ -39,6 +40,10 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
   const [isNewDocModalOpen, setIsNewDocModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  
+  // Ref to track drag enter/leave events to prevent flickering on child elements
+  const dragCounter = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadData = async () => {
@@ -119,6 +124,40 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
       setUploadQueue(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Improved Drag and Drop Handlers
+  const onDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current -= 1;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setUploadQueue(prev => [...prev, ...Array.from(e.dataTransfer.files)]);
+    }
+  };
+
   const handleCreateDocument = async (e: React.FormEvent) => {
       e.preventDefault();
       setIsUploading(true);
@@ -159,15 +198,15 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 p-4 sm:p-6 md:p-8 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-6 p-6 max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
       
       {/* Header & Stats */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight italic">Operations Workbench <span className="text-gov-500 font-bold not-italic text-sm ml-2 bg-gov-50 px-3 py-1 rounded-full border border-gov-100 uppercase tracking-widest hidden sm:inline-block">v2.5 Live</span></h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight italic">Operations Workbench <span className="text-gov-500 font-bold not-italic text-sm ml-2 bg-gov-50 px-3 py-1 rounded-full border border-gov-100 uppercase tracking-widest hidden sm:inline-block">v2.5 Live</span></h1>
           <p className="text-slate-500 font-medium mt-1 uppercase tracking-widest text-[10px]">Authorised Access Only • {currentUser.department}</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
             <button onClick={() => navigate('/archive')} className="w-full sm:w-auto flex items-center justify-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-xl active:scale-95 text-sm">
               <Archive size={18} /> Vault Access
             </button>
@@ -191,22 +230,22 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
       <div className="flex flex-col lg:flex-row gap-6 relative items-start">
         
         {/* Table List */}
-        <div className="flex-1 w-full min-w-0 bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+        <div className={`flex-1 w-full min-w-0 bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden transition-all duration-300 ease-in-out`}>
           {/* Controls Bar */}
-          <div className="p-4 sm:p-6 border-b border-slate-50 flex flex-col md:flex-row justify-between gap-4 bg-slate-50/30">
-            <div className="flex gap-1 p-1.5 bg-slate-100 rounded-2xl w-full md:w-fit overflow-x-auto max-w-full no-scrollbar">
+          <div className="p-4 sm:p-6 border-b border-slate-50 flex flex-col xl:flex-row justify-between gap-4 bg-slate-50/30">
+            <div className="flex gap-1 p-1.5 bg-slate-100 rounded-2xl w-full xl:w-fit overflow-x-auto max-w-full no-scrollbar">
               <FilterTab active={filter === 'all'} label="Global" onClick={() => setFilter('all')} />
               <FilterTab active={filter === 'my-tasks'} label="My Priority" onClick={() => setFilter('my-tasks')} />
               <FilterTab active={filter === 'dept'} label="Internal" onClick={() => setFilter('dept')} />
               <FilterTab active={filter === 'urgent'} label="Critical" onClick={() => setFilter('urgent')} />
             </div>
-            <div className="relative w-full md:w-auto">
+            <div className="relative w-full xl:w-auto">
               <input 
                 type="text" 
                 placeholder="Search Tracking ID or Title..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 pr-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-gov-500/10 focus:border-gov-500 focus:outline-none w-full md:w-80 transition-all shadow-sm" 
+                className="pl-12 pr-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-gov-500/10 focus:border-gov-500 focus:outline-none w-full xl:w-80 transition-all shadow-sm" 
               />
               <Search size={20} className="absolute left-4 top-3.5 text-slate-300" />
             </div>
@@ -216,11 +255,11 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
             <table className="w-full text-left">
               <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
                 <tr>
-                  <th className="px-6 sm:px-8 py-5 whitespace-nowrap">Track ID</th>
-                  <th className="px-6 sm:px-8 py-5">Matter</th>
-                  <th className="px-6 sm:px-8 py-5 text-center hidden xl:table-cell">Security</th>
-                  <th className="px-6 sm:px-8 py-5 hidden md:table-cell">Stage</th>
-                  <th className="px-6 sm:px-8 py-5 text-right">Ops</th>
+                  <th className="px-6 py-5 whitespace-nowrap">Track ID</th>
+                  <th className="px-6 py-5">Matter</th>
+                  <th className="px-6 py-5 text-center hidden xl:table-cell">Security</th>
+                  <th className="px-6 py-5 hidden md:table-cell">Stage</th>
+                  <th className="px-6 py-5 text-right">Ops</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -230,14 +269,14 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
                     onClick={() => setSelectedDoc(doc)}
                     className={`hover:bg-gov-50/50 transition-all cursor-pointer group relative ${selectedDoc?.id === doc.id ? 'bg-gov-50/80 shadow-inner' : ''}`}
                   >
-                    <td className="px-6 sm:px-8 py-5 align-top">
+                    <td className="px-6 py-5 align-top">
                       <span className="text-[10px] sm:text-xs font-mono font-black text-gov-700 bg-gov-100/50 px-2 sm:px-3 py-1.5 rounded-xl border border-gov-100/50 whitespace-nowrap">
                         {doc.trackingId}
                       </span>
                     </td>
-                    <td className="px-6 sm:px-8 py-5">
+                    <td className="px-6 py-5">
                       <div className="flex flex-col">
-                        <span className="font-bold text-slate-800 text-sm group-hover:text-gov-700 transition-colors line-clamp-2 sm:line-clamp-1 max-w-[200px] sm:max-w-xs">{doc.title}</span>
+                        <span className="font-bold text-slate-800 text-sm group-hover:text-gov-700 transition-colors line-clamp-2 max-w-[200px] sm:max-w-xs">{doc.title}</span>
                         <div className="flex flex-wrap items-center gap-2 mt-1">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{doc.type}</span>
                             <span className="h-1 w-1 rounded-full bg-slate-200 hidden sm:block"></span>
@@ -250,7 +289,7 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 sm:px-8 py-5 text-center hidden xl:table-cell">
+                    <td className="px-6 py-5 text-center hidden xl:table-cell">
                       <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest border shadow-sm ${
                         doc.priority === 'Highly Urgent' ? 'bg-red-50 text-red-700 border-red-100' :
                         doc.priority === 'Urgent' ? 'bg-orange-50 text-orange-700 border-orange-100' :
@@ -259,7 +298,7 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
                         {doc.priority.split(' ')[0]}
                       </span>
                     </td>
-                    <td className="px-6 sm:px-8 py-5 hidden md:table-cell">
+                    <td className="px-6 py-5 hidden md:table-cell">
                       <div className="flex items-center gap-3">
                         <div className={`h-2.5 w-2.5 rounded-full shadow-sm shrink-0 ${
                           doc.status === DocumentStatus.FOR_APPROVAL ? 'bg-orange-500 animate-pulse' :
@@ -269,7 +308,7 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
                         <span className="text-xs font-black text-slate-700 uppercase tracking-tight truncate max-w-[100px]">{doc.status}</span>
                       </div>
                     </td>
-                    <td className="px-6 sm:px-8 py-5 text-right align-middle">
+                    <td className="px-6 py-5 text-right align-middle">
                        <button className="p-2 bg-white text-slate-400 hover:text-gov-600 hover:shadow-md rounded-xl transition-all border border-slate-100">
                          <MoreVertical size={16} />
                        </button>
@@ -295,21 +334,21 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
           />
         )}
 
-        {/* Sidebar Detail View (Drawer on Mobile, Sidebar on Desktop) */}
+        {/* Sidebar Detail View (Drawer on Mobile, Collapsible Sidebar on Desktop) */}
         <div className={`
-            fixed inset-y-0 right-0 w-[85vw] sm:w-[450px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out
-            lg:static lg:transform-none lg:w-[400px] xl:w-[450px] lg:shadow-none lg:z-0 lg:bg-transparent lg:block
-            ${selectedDoc ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+            fixed inset-y-0 right-0 w-full sm:w-[450px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out
+            lg:static lg:shadow-none lg:z-0 lg:bg-transparent
+            ${selectedDoc ? 'translate-x-0 lg:w-[400px] xl:w-[450px] lg:opacity-100' : 'translate-x-full lg:translate-x-0 lg:w-0 lg:opacity-0 lg:overflow-hidden'}
         `}>
-          {selectedDoc ? (
-            <div className="bg-white lg:rounded-[2rem] lg:shadow-2xl lg:shadow-gov-900/10 lg:border border-slate-100 h-full lg:h-auto flex flex-col">
+          {selectedDoc && (
+            <div className="bg-white lg:rounded-[2rem] lg:shadow-2xl lg:shadow-gov-900/10 lg:border border-slate-100 h-full lg:h-auto flex flex-col min-w-[350px]">
               {/* Sidebar Header */}
-              <div className="p-6 sm:p-8 border-b border-slate-50 flex justify-between items-start shrink-0">
+              <div className="p-6 sm:p-8 border-b border-slate-50 flex justify-between items-start shrink-0 bg-slate-50/50">
                 <div>
                     <p className="text-[10px] font-black text-gov-600 uppercase tracking-widest leading-none">Metadata Profile</p>
-                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-2 leading-tight italic">{selectedDoc.title}</h2>
+                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-2 leading-tight italic pr-4">{selectedDoc.title}</h2>
                 </div>
-                <button onClick={() => setSelectedDoc(null)} className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 transition-colors"><X size={20}/></button>
+                <button onClick={() => setSelectedDoc(null)} className="p-2 hover:bg-white rounded-xl text-slate-400 transition-colors shadow-sm"><X size={20}/></button>
               </div>
               
               {/* Sidebar Scrollable Content */}
@@ -353,7 +392,7 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
                       </a>
                     ))}
                     {selectedDoc.attachments.length === 0 && (
-                        <p className="text-xs text-slate-400 italic text-center p-4">No physical attachments digitized.</p>
+                        <p className="text-xs text-slate-400 italic text-center p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">No physical attachments digitized.</p>
                     )}
                   </div>
                 </div>
@@ -364,10 +403,10 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
                   
                   {currentUser.jobLevel === JobLevel.EXECUTIVE && (
                     <div className="grid grid-cols-1 gap-3">
-                        <button onClick={() => handleDocAction(selectedDoc.id, 'APPROVE')} className="w-full bg-slate-950 text-white py-4 rounded-2xl font-black text-sm hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 flex items-center justify-center gap-3">
+                        <button onClick={() => handleDocAction(selectedDoc.id, 'APPROVE')} className="w-full bg-slate-950 text-white py-4 rounded-2xl font-black text-sm hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 flex items-center justify-center gap-3 active:scale-95">
                             <Shield size={18} /> Apply Digital Signature
                         </button>
-                        <button onClick={() => handleDocAction(selectedDoc.id, 'RETURN')} className="w-full bg-white text-orange-600 border-2 border-orange-100 py-4 rounded-2xl font-black text-sm hover:bg-orange-50 transition-all flex items-center justify-center gap-3">
+                        <button onClick={() => handleDocAction(selectedDoc.id, 'RETURN')} className="w-full bg-white text-orange-600 border-2 border-orange-100 py-4 rounded-2xl font-black text-sm hover:bg-orange-50 transition-all flex items-center justify-center gap-3 active:scale-95">
                             <ArrowRight size={18} className="rotate-180" /> Return to Dept
                         </button>
                     </div>
@@ -375,32 +414,26 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
 
                   {currentUser.jobLevel === JobLevel.DEPT_HEAD && (
                     <div className="grid grid-cols-1 gap-3">
-                        <button onClick={() => handleDocAction(selectedDoc.id, 'APPROVE')} className="w-full bg-gov-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-gov-700 transition-all shadow-xl shadow-gov-600/20 flex items-center justify-center gap-3">
+                        <button onClick={() => handleDocAction(selectedDoc.id, 'APPROVE')} className="w-full bg-gov-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-gov-700 transition-all shadow-xl shadow-gov-600/20 flex items-center justify-center gap-3 active:scale-95">
                             Endorse for Executive Signature
                         </button>
-                        <button onClick={() => handleDocAction(selectedDoc.id, 'FORWARD')} className="w-full bg-white text-blue-600 border-2 border-blue-100 py-4 rounded-2xl font-black text-sm hover:bg-blue-50 transition-all flex items-center justify-center gap-3">
+                        <button onClick={() => handleDocAction(selectedDoc.id, 'FORWARD')} className="w-full bg-white text-blue-600 border-2 border-blue-100 py-4 rounded-2xl font-black text-sm hover:bg-blue-50 transition-all flex items-center justify-center gap-3 active:scale-95">
                             Forward for Evaluation
                         </button>
                     </div>
                   )}
 
                   {currentUser.jobLevel === JobLevel.OFFICER && (
-                    <button onClick={() => handleDocAction(selectedDoc.id, 'APPROVE')} className="w-full bg-gov-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-gov-700 transition-all shadow-xl shadow-gov-600/20 flex items-center justify-center gap-3">
+                    <button onClick={() => handleDocAction(selectedDoc.id, 'APPROVE')} className="w-full bg-gov-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-gov-700 transition-all shadow-xl shadow-gov-600/20 flex items-center justify-center gap-3 active:scale-95">
                         Recommend Approval <CheckCircle size={18} />
                     </button>
                   )}
 
-                  <button onClick={() => handleDocAction(selectedDoc.id, 'REJECT')} className="w-full bg-white text-slate-400 py-3 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:text-red-600 hover:bg-red-50 transition-all border border-transparent hover:border-red-100">
+                  <button onClick={() => handleDocAction(selectedDoc.id, 'REJECT')} className="w-full bg-white text-slate-400 py-3 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:text-red-600 hover:bg-red-50 transition-all border border-transparent hover:border-red-100 active:scale-95">
                       Terminate Record
                   </button>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-[2rem] border-2 border-dashed border-slate-200 p-12 text-center flex flex-col items-center justify-center h-full lg:h-[calc(100vh-200px)] min-h-[500px] shadow-inner hidden lg:flex">
-              <Layers className="text-slate-100 mb-6" size={64} />
-              <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm">Standby Mode</h3>
-              <p className="text-[11px] text-slate-400 mt-3 max-w-[200px] font-medium leading-relaxed uppercase tracking-wider">Select a document to initialize secure workflow controls.</p>
             </div>
           )}
         </div>
@@ -440,15 +473,22 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
 
                     <div className="space-y-2">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Attachments</label>
-                        <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-slate-50 transition-colors relative">
-                            <Upload size={32} className="text-slate-300 mb-2" />
-                            <p className="text-xs font-bold text-slate-500">Drag files here or click to browse</p>
+                        <div 
+                          className={`border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center transition-colors relative cursor-pointer group ${isDragging ? 'border-gov-500 bg-gov-50' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50'}`}
+                          onDragEnter={onDragEnter}
+                          onDragLeave={onDragLeave}
+                          onDragOver={onDragOver}
+                          onDrop={onDrop}
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                            <Upload size={32} className={`mb-2 transition-colors ${isDragging ? 'text-gov-500' : 'text-slate-300 group-hover:text-gov-400'}`} />
+                            <p className="text-xs font-bold text-slate-500 pointer-events-none">Drag files here or click to browse</p>
                             <input 
                                 type="file" 
                                 ref={fileInputRef}
                                 multiple 
                                 onChange={handleFilesAdded}
-                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                className="hidden"
                             />
                         </div>
                         
@@ -456,7 +496,7 @@ const InternalRoutingView: React.FC<InternalRoutingViewProps> = ({ currentUser }
                         {uploadQueue.length > 0 && (
                             <div className="space-y-2 mt-4">
                                 {uploadQueue.map((file, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
+                                    <div key={idx} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl shadow-sm animate-in fade-in slide-in-from-left-2 duration-300">
                                         <div className="flex items-center gap-3 overflow-hidden">
                                             <div className="h-8 w-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center shrink-0">
                                                 <FileIcon size={14} />

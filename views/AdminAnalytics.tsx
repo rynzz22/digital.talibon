@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Users, FileText, Clock, Building2 } from '../components/Icons';
@@ -63,11 +64,11 @@ const AdminAnalytics: React.FC = () => {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* Bar Chart */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        {/* Bar Chart - Added min-w-0 for safety */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 min-w-0">
           <h3 className="text-lg font-bold text-gray-900 mb-6">Applications Received (2023)</h3>
-          <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div style={{ width: '100%', height: '320px' }}>
+            <ResponsiveContainer width="99%" height="100%">
               <BarChart data={applicationData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} />
@@ -82,11 +83,11 @@ const AdminAnalytics: React.FC = () => {
           </div>
         </div>
 
-        {/* Pie Chart */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        {/* Pie Chart - Added min-w-0 for safety */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 min-w-0">
           <h3 className="text-lg font-bold text-gray-900 mb-6">Application Status Breakdown</h3>
-          <div className="h-80 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+          <div style={{ width: '100%', height: '320px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <ResponsiveContainer width="99%" height="100%">
               <PieChart>
                 <Pie
                   data={statusData}

@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-// Fixed: Added Shield to the imported icons list to resolve "Cannot find name 'Shield'" error.
 import { Users, FileText, Clock, Building2, TrendingUp, AlertCircle, DollarSign, Activity, CloudRain, Wind, Droplets, CheckCircle, ArrowRight, Shield } from '../components/Icons';
 import { User, JobLevel, InternalDocument, DocumentStatus } from '../types';
 import { DB } from '../services/db';
@@ -57,8 +56,8 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ currentUser }) 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Queue for Mayor */}
-          <div className="lg:col-span-2 space-y-6">
+          {/* Main Queue for Mayor - min-w-0 added to prevent Recharts blowout in grid */}
+          <div className="lg:col-span-2 space-y-6 min-w-0">
               <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
                   <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
                       <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase tracking-tighter">
@@ -101,7 +100,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ currentUser }) 
               </div>
 
               {/* Chart */}
-              <div className="bg-white p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100">
+              <div className="bg-white p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 min-w-0">
                   <div className="flex justify-between items-center mb-8">
                       <h3 className="font-black text-slate-900 uppercase tracking-tighter">Budget Utilization Velocity</h3>
                       <div className="flex gap-2">
@@ -109,8 +108,9 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ currentUser }) 
                           <span className="text-[10px] font-bold text-slate-400 uppercase">General Fund</span>
                       </div>
                   </div>
-                  <div className="h-64 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
+                  {/* Fixed: Use strict height style and 99% width to ensure Recharts can calculate dimensions in Grid */}
+                  <div style={{ width: '100%', height: '300px' }}>
+                      <ResponsiveContainer width="99%" height="100%">
                           <BarChart data={[
                               { name: 'Jan', val: 12 }, { name: 'Feb', val: 15 }, { name: 'Mar', val: 28 }, 
                               { name: 'Apr', val: 22 }, { name: 'May', val: 34 }, { name: 'Jun', val: 45 }
@@ -127,7 +127,7 @@ const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ currentUser }) 
           </div>
 
           {/* Right Column */}
-          <div className="space-y-8">
+          <div className="space-y-8 min-w-0">
               {/* MDRRMO Weather Module */}
               <div className={`p-8 rounded-[2rem] shadow-2xl relative overflow-hidden transition-all duration-700 ${weather?.isAlert ? 'bg-red-600 text-white shadow-red-200' : 'bg-gradient-to-br from-gov-600 to-gov-800 text-white shadow-gov-200'}`}>
                   {weather ? (
